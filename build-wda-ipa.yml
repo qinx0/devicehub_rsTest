@@ -1,0 +1,41 @@
+# Builds an UNSIGNED WebDriverAgentRunner .ipa on a GitHub-hosted Mac.
+# Put this file at .github/workflows/build-wda-ipa.yml in any GitHub repo you own,
+# then run it from the Actions tab ("Run workflow"). Download the artifact, and
+# sign + install it with SideStore / AltStore / Sideloadly.
+name: Build unsigned WDA IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Check out WebDriverAgent
+        uses: actions/checkout@v4
+        with:
+          repository: appium/WebDriverAgent
+
+      - name: Build for iOS devices (no code signing)
+        run: |
+          xcodebuild build-for-testing \
+            -project WebDriverAgent.xcodeproj \
+            -scheme WebDriverAgentRunner \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+      - name: Package .ipa
+        run: |
+          APP=$(find build/Build/Products -maxdepth 3 -name 'WebDriverAgentRunner-Runner.app' | head -1)
+          echo "Found: $APP"
+          mkdir Payload
+          cp -R "$APP" Payload/
+          zip -qry WebDriverAgentRunner.ipa Payload
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebDriverAgentRunner-unsigned-ipa
+          path: WebDriverAgentRunner.ipa
